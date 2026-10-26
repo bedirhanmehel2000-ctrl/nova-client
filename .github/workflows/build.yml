@@ -1,0 +1,45 @@
+name: Build Nova Client
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+permissions:
+  
+contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unpack source
+        run: |
+          mkdir proj
+          for z in *.zip; do unzip -q "$z" -d proj; done
+          ls proj
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 9.4.1
+
+      - name: Build jar
+        working-directory: proj
+        run: gradle build --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nova-client
+          path: proj/build/libs/nova-client-*.jar
+
+      - name: Publish release (direct .jar download)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest proj/build/libs/nova-client-*.jar \
+            --title "Nova Client (latest build)" \
+            --notes "Download the .jar and put it in your mods folder with Fabric API."
